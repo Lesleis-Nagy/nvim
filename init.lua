@@ -228,6 +228,27 @@ require("toggleterm").setup {
 }
 
 --- --------------------------------------------------------------------- ---
+--- Telescope                                                             ---
+--- --------------------------------------------------------------------- ---
+
+
+--- NOTE: Make sure you have 'ripgrep' installed on the command line
+---       see: https://github.com/BurntSushi/ripgrep
+
+require('telescope').setup{
+  defaults = {
+    -- you can customize default settings here
+  }
+}
+
+-- Optional: Create keybindings for common pickers
+local builtin = require('telescope.builtin')
+vim.keymap.set('n', '<leader>ff', builtin.find_files, {})
+vim.keymap.set('n', '<leader>fg', builtin.live_grep, {})
+vim.keymap.set('n', '<leader>fb', builtin.buffers, {})
+vim.keymap.set('n', '<leader>fh', builtin.help_tags, {})
+
+--- --------------------------------------------------------------------- ---
 --- mason                                                                 ---
 --- --------------------------------------------------------------------- ---
 
