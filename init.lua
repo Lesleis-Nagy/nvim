@@ -63,6 +63,16 @@ vim.call('plug#begin')
     -- LSP config
     Plug('neovim/nvim-lspconfig')
 
+    -- nvim-dap 
+    Plug 'mfussenegger/nvim-dap'
+
+    -- nvim-nio
+    Plug 'nvim-neotest/nvim-nio'
+ 
+    --  nvim-dap-ui
+    Plug 'rcarriga/nvim-dap-ui'
+
+
 vim.call('plug#end')
 
 --- --------------------------------------------------------------------- ---
@@ -249,32 +259,67 @@ vim.keymap.set('n', '<leader>fb', builtin.buffers, {})
 vim.keymap.set('n', '<leader>fh', builtin.help_tags, {})
 
 --- --------------------------------------------------------------------- ---
---- mason                                                                 ---
+--- nvim-dap configuration                                                ---
 --- --------------------------------------------------------------------- ---
 
--- require("mason").setup()
+-- nvim-dap configuration for C/C++ using lldb
 
---- --------------------------------------------------------------------- ---
---- mason                                                                 ---
---- --------------------------------------------------------------------- ---
 
--- require("mason-lspconfig").setup {
---   ensure_installed = {
---     "clangd",
---   },
--- }
--- 
--- require("lspconfig").clangd.setup {
---     cmd = { 
---       "clangd",
---       "--compile-commands-dir=build",
---       "--query-driver=" .. os.getenv("EMSDK") .. "/upstream/bin/clang",
---     },
---     on_attach = function(client, bufnr)
---         print("clangd attached to buffer", bufnr)
---     end
--- }
--- 
--- vim.api.nvim_set_keymap(
---   "n", "K", "<cmd>lua vim.lsp.buf.hover()<CR>", { noremap = true, silent = true })
+
+
+local dap = require('dap')
+
+dap.adapters.lldb = {
+  type = 'server',
+  port = "${port}",
+  executable = {
+    -- Update the command below with the correct path to your codelldb executable
+    command = '/Users/lnagy2/Install/codelldb/extension/adapter/codelldb',
+    args = {"--port", "${port}"},
+    -- On macOS you might also need to set the environment variable if required:
+    -- env = {LLDB_LAUNCH_FLAG_LAUNCH_IN_TTY=1},
+  }
+}
+
+dap.configurations.cpp = {
+  {
+    name = "Launch",
+    type = "lldb",  -- This should match the adapter name above
+    request = "launch",
+    program = function()
+      return vim.fn.input("Path to executable: ", vim.fn.getcwd() .. "/", "file")
+    end,
+    cwd = '${workspaceFolder}',
+    stopOnEntry = false,
+    args = {},
+  },
+}
+
+dap.configurations.c = dap.configurations.cpp
+
+
+
+
+-- nvim-dap-ui configuration
+local dapui = require("dapui")
+dapui.setup()
+
+-- Open dap-ui automatically when debugging starts
+dap.listeners.after.event_initialized["dapui_config"] = function()
+  dapui.open()
+end
+-- Close dap-ui automatically when debugging ends
+dap.listeners.before.event_terminated["dapui_config"] = function()
+  dapui.close()
+end
+dap.listeners.before.event_exited["dapui_config"] = function()
+  dapui.close()
+end
+
+-- Key mappings for debugging
+vim.api.nvim_set_keymap('n', '<F5>', '<cmd>lua require"dap".continue()<CR>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<F10>', '<cmd>lua require"dap".step_over()<CR>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<F11>', '<cmd>lua require"dap".step_into()<CR>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<F12>', '<cmd>lua require"dap".step_out()<CR>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>b', '<cmd>lua require"dap".toggle_breakpoint()<CR>', { noremap = true, silent = true })
 
