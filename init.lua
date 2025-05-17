@@ -76,6 +76,29 @@ vim.call('plug#begin')
 vim.call('plug#end')
 
 --- --------------------------------------------------------------------- ---
+--- Nerdtree                                                              ---
+--- --------------------------------------------------------------------- ---
+
+-- NERDTree ignore toggle for Lua config
+vim.g.NERDTreeIgnore = { '^build$', '^node_modules$' }
+local nerdtree_ignore_active = true
+
+function ToggleNERDTreeIgnore()
+  if nerdtree_ignore_active then
+    vim.g.NERDTreeIgnore = {} -- show everything
+    nerdtree_ignore_active = false
+  else
+    vim.g.NERDTreeIgnore = { '^build$', '^node_modules$' } -- hide again
+    nerdtree_ignore_active = true
+  end
+  -- Refresh NERDTree
+  vim.cmd('NERDTreeRefreshRoot')
+end
+
+-- Map <leader>ti to toggle the ignore
+vim.keymap.set('n', '<leader>ti', ToggleNERDTreeIgnore, { noremap = true, silent = true })
+
+--- --------------------------------------------------------------------- ---
 --- General                                                               ---
 --- --------------------------------------------------------------------- ---
 
@@ -117,7 +140,10 @@ vim.opt.linebreak = true
 vim.opt.cursorline = true
 
 -- color scheme
-vim.opt.background = "dark"
+vim.opt.background = "light"
+
+-- leader
+vim.g.mapleader = " "
 
 vim.cmd([[colorscheme gruvbox]])
 
@@ -141,7 +167,7 @@ vim.opt.smartindent = true
 --- Fonts                                                                 ---
 --- --------------------------------------------------------------------- ---
 
-vim.o.guifont = "MesloLGMDZ Nerd Font Mono:h16"
+vim.o.guifont = "MesloLGMDZ Nerd Font Mono:h15"
 
 --- --------------------------------------------------------------------- ---
 --- Treesitter (syntax)                                                   ---
@@ -262,9 +288,8 @@ vim.keymap.set('n', '<leader>fh', builtin.help_tags, {})
 --- nvim-dap configuration                                                ---
 --- --------------------------------------------------------------------- ---
 
+
 -- nvim-dap configuration for C/C++ using lldb
-
-
 
 
 local dap = require('dap')
@@ -297,9 +322,6 @@ dap.configurations.cpp = {
 
 dap.configurations.c = dap.configurations.cpp
 
-
-
-
 -- nvim-dap-ui configuration
 local dapui = require("dapui")
 dapui.setup()
@@ -322,4 +344,95 @@ vim.api.nvim_set_keymap('n', '<F10>', '<cmd>lua require"dap".step_over()<CR>', {
 vim.api.nvim_set_keymap('n', '<F11>', '<cmd>lua require"dap".step_into()<CR>', { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', '<F12>', '<cmd>lua require"dap".step_out()<CR>', { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', '<leader>b', '<cmd>lua require"dap".toggle_breakpoint()<CR>', { noremap = true, silent = true })
+
+--- --------------------------------------------------------------------- ---
+--- Useful things                                                         ---
+--- --------------------------------------------------------------------- ---
+
+
+--- 
+--- Comment block
+---
+
+-- Function to insert an author block
+function InsertAuthorBlock()
+  local author = "Author: L. Nagy"
+  local date = "Date: " .. os.date("%Y-%m-%d") -- Format: YYYY-MM-DD
+
+  local lines = {
+    "//",
+    "// " .. author,
+    "// " .. date,
+    "//",
+    ""
+  }
+
+  vim.api.nvim_buf_set_lines(0, 0, 0, false, lines)
+end
+
+-- Map it to a key, e.g., <leader>ab (author block)
+vim.keymap.set('n', '<leader>ab', InsertAuthorBlock, { noremap = true, silent = true })
+
+---
+--- Guard generation
+---
+
+-- Function to generate a UUID
+local function generate_uuid()
+  -- simple UUID v4 generator (not cryptographically secure, but fine for this)
+  local random = math.random
+  local template = "xxxxxxxx_xxxx_4xxx_yxxx_xxxxxxxxxxxx"
+  return string.gsub(template, "[xy]", function (c)
+    local v = (c == "x") and random(0, 0xf) or random(8, 0xb)
+    return string.format("%x", v)
+  end):upper()
+end
+
+-- Insert a header guard at the top of the file
+function InsertGuard()
+  local uuid = generate_uuid()
+  local guard = "GUARD_" .. uuid
+  local lines = {
+    "#ifndef " .. guard,
+    "#define " .. guard,
+    "",
+    "",
+    "#endif // " .. guard
+  }
+
+  -- Get current row
+  local row, _ = unpack(vim.api.nvim_win_get_cursor(0))
+  -- Insert at current row
+  vim.api.nvim_buf_set_lines(0, row, row, false, lines)
+  -- Move 2 cursor lines down inside the guard
+  vim.api.nvim_win_set_cursor(0, {row + 2, 0})
+end
+
+-- Map it to something like <leader>ig (insert guard)
+vim.keymap.set('n', '<leader>ig', InsertGuard, { noremap = true, silent = true })
+
+---
+--- Name space (go to the line with the namespace to insert this)
+---
+
+function InsertNamespaceComment()
+  -- Get the current line where the cursor is
+  local line = vim.api.nvim_get_current_line()
+
+  -- Try to extract the namespace name
+  local ns = line:match("^%s*namespace%s+([%w_:]+)%s*{")
+
+  if ns then
+    -- Insert the closing comment on the next line
+    local row, _ = unpack(vim.api.nvim_win_get_cursor(0))
+    vim.api.nvim_buf_set_lines(0, row + 1, row + 1, false, {"} // namespace " .. ns})
+    -- Move cursor to after inserted comment
+    vim.api.nvim_win_set_cursor(0, {row + 1, 0})
+  else
+    print("⚡ Not inside a namespace declaration!")
+  end
+end
+
+-- Map it to something like <leader>nc (namespace comment)
+vim.keymap.set('n', '<leader>nc', InsertNamespaceComment, { noremap = true, silent = true })
 
