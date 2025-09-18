@@ -37,7 +37,7 @@ vim.call('plug#begin')
     Plug('nvim-lua/plenary.nvim')
 
     -- Interface for the parser generator tool 'tree-sitter'
-    Plug('nvim-treesitter/nvim-treesitter', { ['do'] = vim.fn[':TSUpdate'] })
+    Plug('nvim-treesitter/nvim-treesitter', { ['do'] = ':TSUpdate' })
 
     -- An extendable fuzzy finder
     Plug('nvim-telescope/telescope.nvim', { ['tag'] = '0.1.8' })
@@ -64,16 +64,30 @@ vim.call('plug#begin')
     Plug('neovim/nvim-lspconfig')
 
     -- nvim-dap 
-    Plug 'mfussenegger/nvim-dap'
+    Plug('mfussenegger/nvim-dap')
 
     -- nvim-nio
-    Plug 'nvim-neotest/nvim-nio'
+    Plug('nvim-neotest/nvim-nio')
  
     --  nvim-dap-ui
-    Plug 'rcarriga/nvim-dap-ui'
+    Plug('rcarriga/nvim-dap-ui')
+
+    -- nvim-dap inline values
+    Plug('theHamsta/nvim-dap-virtual-text')
+
+    -- mason
+    Plug('williamboman/mason.nvim', { ['do'] = ':MasonUpdate' })
+    Plug('williamboman/mason-lspconfig.nvim')
 
 
 vim.call('plug#end')
+
+--- --------------------------------------------------------------------- ---
+--- Include configurations                                                ---
+--- --------------------------------------------------------------------- ---
+if vim.fn.has('nvim') == 1 then
+  require('dap_config')
+end
 
 --- --------------------------------------------------------------------- ---
 --- Nerdtree                                                              ---
@@ -167,7 +181,8 @@ vim.opt.smartindent = true
 --- Fonts                                                                 ---
 --- --------------------------------------------------------------------- ---
 
-vim.o.guifont = "MesloLGMDZ Nerd Font Mono:h15"
+--- vim.o.guifont = "MesloLGMDZ Nerd Font Mono:h15"
+vim.o.guifont = "Iosevka Nerd Font Mono:h15"
 
 --- --------------------------------------------------------------------- ---
 --- Treesitter (syntax)                                                   ---
@@ -204,7 +219,6 @@ require('nvim-treesitter.configs').setup {
     -- of languages
     additional_vim_regex_highlighting = false,
   },
-
 }
 
 --- --------------------------------------------------------------------- ---
@@ -285,12 +299,109 @@ vim.keymap.set('n', '<leader>fb', builtin.buffers, {})
 vim.keymap.set('n', '<leader>fh', builtin.help_tags, {})
 
 --- --------------------------------------------------------------------- ---
+--- lsp configuration                                                     ---
+--- --------------------------------------------------------------------- ---
+
+-- Mason installs/updates language servers for you (no sudo needed)
+require('mason').setup({})
+require('mason-lspconfig').setup({
+  ensure_installed = {
+    'fortls',        -- Fortran
+    'basedpyright',  -- Python type checker (use 'pyright' if you prefer)
+    'ruff',      -- Python lint/quickfix LSP
+    'rust_analyzer', -- Rust
+    'zls',           -- Zig
+    'clangd',        -- C/C++
+  },
+  automatic_installation = true,
+})
+
+local lspconfig = require('lspconfig')
+local util = lspconfig.util
+
+-- Optional: better completion capabilities if you add nvim-cmp later.
+local capabilities = vim.lsp.protocol.make_client_capabilities()
+pcall(function()
+  capabilities = require('cmp_nvim_lsp').default_capabilities(capabilities)
+end)
+
+-- Optional shared on_attach (keeps your global gd/gr/K; adds a few extras)
+local on_attach = function(_, bufnr)
+  local map = function(m, lhs, rhs, desc)
+    vim.keymap.set(m, lhs, rhs, { buffer = bufnr, desc = desc })
+  end
+  map('n', '<leader>rn', vim.lsp.buf.rename,        'LSP Rename')
+  map('n', '<leader>ca', vim.lsp.buf.code_action,   'LSP Code Action')
+  map('n', 'gI',         vim.lsp.buf.implementation,'Go to implementation')
+  map('n', '<leader>f',  function() vim.lsp.buf.format({ async = true }) end, 'Format')
+end
+
+-- Fortran
+lspconfig.fortls.setup{
+  cmd = { 'fortls' },
+  filetypes = { 'fortran' },
+  root_dir = util.root_pattern('.fortls', '.git'),
+  on_attach = on_attach,
+  capabilities = capabilities,
+}
+
+-- Python: type checker + Ruff (we disable Ruff hover so Pyright/BasedPyright owns it)
+lspconfig.basedpyright.setup{
+  on_attach = on_attach,
+  capabilities = capabilities,
+  root_dir = util.root_pattern('pyproject.toml','setup.cfg','setup.py','requirements.txt','.git'),
+  settings = { basedpyright = { analysis = { autoSearchPaths = true, useLibraryCodeForTypes = true } } },
+}
+
+lspconfig.ruff.setup{
+  -- Let pyright/basedpyright own hover docs (optional)
+  on_attach = function(client, bufnr)
+    client.server_capabilities.hoverProvider = false
+    -- your usual on_attach bits here if you have them:
+    -- on_attach(client, bufnr)
+  end,
+  -- Ruff reads config from pyproject.toml/ruff.toml; no settings needed usually.
+  -- You can pass extra CLI args if you really need to:
+  -- init_options = { settings = { args = { "--select", "E,F,I" } } },
+}
+
+-- Rust
+lspconfig.rust_analyzer.setup{
+  on_attach = on_attach,
+  capabilities = capabilities,
+  settings = {
+    ['rust-analyzer'] = {
+      cargo = { allFeatures = true },
+      checkOnSave = { command = 'clippy' },
+    },
+  },
+}
+
+-- Zig
+lspconfig.zls.setup{
+  on_attach = on_attach,
+  capabilities = capabilities,
+  root_dir = util.root_pattern('build.zig', '.git'),
+}
+
+-- C / C++
+lspconfig.clangd.setup{
+  on_attach = on_attach,
+  capabilities = capabilities,
+  cmd = { 'clangd', '--background-index', '--clang-tidy', '--header-insertion=never' },
+  root_dir = util.root_pattern('compile_commands.json','compile_flags.txt','CMakeLists.txt','.git'),
+}
+
+--- keymaps (keep your existing ones)
+vim.keymap.set('n', 'gd', vim.lsp.buf.definition,  { desc = "Go to definition" })
+vim.keymap.set('n', 'gr', vim.lsp.buf.references,  { desc = "Find references" })
+vim.keymap.set('n', 'K',  vim.lsp.buf.hover,       { desc = "Hover documentation" })
+
+--- --------------------------------------------------------------------- ---
 --- nvim-dap configuration                                                ---
 --- --------------------------------------------------------------------- ---
 
-
 -- nvim-dap configuration for C/C++ using lldb
-
 
 local dap = require('dap')
 
@@ -349,90 +460,14 @@ vim.api.nvim_set_keymap('n', '<leader>b', '<cmd>lua require"dap".toggle_breakpoi
 --- Useful things                                                         ---
 --- --------------------------------------------------------------------- ---
 
-
---- 
---- Comment block
+---
+--- Remap ggVG= so that it runs clang format
 ---
 
--- Function to insert an author block
-function InsertAuthorBlock()
-  local author = "Author: L. Nagy"
-  local date = "Date: " .. os.date("%Y-%m-%d") -- Format: YYYY-MM-DD
-
-  local lines = {
-    "//",
-    "// " .. author,
-    "// " .. date,
-    "//",
-    ""
-  }
-
-  vim.api.nvim_buf_set_lines(0, 0, 0, false, lines)
-end
-
--- Map it to a key, e.g., <leader>ab (author block)
-vim.keymap.set('n', '<leader>ab', InsertAuthorBlock, { noremap = true, silent = true })
-
----
---- Guard generation
----
-
--- Function to generate a UUID
-local function generate_uuid()
-  -- simple UUID v4 generator (not cryptographically secure, but fine for this)
-  local random = math.random
-  local template = "xxxxxxxx_xxxx_4xxx_yxxx_xxxxxxxxxxxx"
-  return string.gsub(template, "[xy]", function (c)
-    local v = (c == "x") and random(0, 0xf) or random(8, 0xb)
-    return string.format("%x", v)
-  end):upper()
-end
-
--- Insert a header guard at the top of the file
-function InsertGuard()
-  local uuid = generate_uuid()
-  local guard = "GUARD_" .. uuid
-  local lines = {
-    "#ifndef " .. guard,
-    "#define " .. guard,
-    "",
-    "",
-    "#endif // " .. guard
-  }
-
-  -- Get current row
-  local row, _ = unpack(vim.api.nvim_win_get_cursor(0))
-  -- Insert at current row
-  vim.api.nvim_buf_set_lines(0, row, row, false, lines)
-  -- Move 2 cursor lines down inside the guard
-  vim.api.nvim_win_set_cursor(0, {row + 2, 0})
-end
-
--- Map it to something like <leader>ig (insert guard)
-vim.keymap.set('n', '<leader>ig', InsertGuard, { noremap = true, silent = true })
-
----
---- Name space (go to the line with the namespace to insert this)
----
-
-function InsertNamespaceComment()
-  -- Get the current line where the cursor is
-  local line = vim.api.nvim_get_current_line()
-
-  -- Try to extract the namespace name
-  local ns = line:match("^%s*namespace%s+([%w_:]+)%s*{")
-
-  if ns then
-    -- Insert the closing comment on the next line
-    local row, _ = unpack(vim.api.nvim_win_get_cursor(0))
-    vim.api.nvim_buf_set_lines(0, row + 1, row + 1, false, {"} // namespace " .. ns})
-    -- Move cursor to after inserted comment
-    vim.api.nvim_win_set_cursor(0, {row + 1, 0})
-  else
-    print("⚡ Not inside a namespace declaration!")
-  end
-end
-
--- Map it to something like <leader>nc (namespace comment)
-vim.keymap.set('n', '<leader>nc', InsertNamespaceComment, { noremap = true, silent = true })
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = { "c", "cpp", "objc", "objcpp" },
+  callback = function()
+    vim.bo.equalprg = "clang-format -style=file"
+  end,
+})
 
