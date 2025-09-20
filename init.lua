@@ -94,7 +94,7 @@ end
 --- --------------------------------------------------------------------- ---
 
 -- NERDTree ignore toggle for Lua config
-vim.g.NERDTreeIgnore = { '^build$', '^node_modules$' }
+vim.g.NERDTreeIgnore = { '^_build$', '^node_modules$' }
 local nerdtree_ignore_active = true
 
 function ToggleNERDTreeIgnore()
@@ -102,7 +102,7 @@ function ToggleNERDTreeIgnore()
     vim.g.NERDTreeIgnore = {} -- show everything
     nerdtree_ignore_active = false
   else
-    vim.g.NERDTreeIgnore = { '^build$', '^node_modules$' } -- hide again
+    vim.g.NERDTreeIgnore = { '^_build$', '^node_modules$' } -- hide again
     nerdtree_ignore_active = true
   end
   -- Refresh NERDTree
@@ -388,7 +388,7 @@ lspconfig.zls.setup{
 lspconfig.clangd.setup{
   on_attach = on_attach,
   capabilities = capabilities,
-  cmd = { 'clangd', '--background-index', '--clang-tidy', '--header-insertion=never' },
+  cmd = { 'clangd', '--background-index', '--clang-tidy', '--header-insertion=never', '--compile-commands-dir=_build'},
   root_dir = util.root_pattern('compile_commands.json','compile_flags.txt','CMakeLists.txt','.git'),
 }
 
