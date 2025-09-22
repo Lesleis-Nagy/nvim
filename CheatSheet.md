@@ -28,6 +28,7 @@ These are active in buffers where a language server is attached.
 | `<leader>ca` | **Code action** |
 | `gI` | Go to implementation |
 | `<leader>f` | **Format** buffer (async) |
+| `<leader>e` | Hover over error additional information
 
 > Python uses **basedpyright** and **ruff**; C/C++ uses **clangd**.
 

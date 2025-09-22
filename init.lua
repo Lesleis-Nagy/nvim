@@ -396,6 +396,9 @@ lspconfig.clangd.setup{
 vim.keymap.set('n', 'gd', vim.lsp.buf.definition,  { desc = "Go to definition" })
 vim.keymap.set('n', 'gr', vim.lsp.buf.references,  { desc = "Find references" })
 vim.keymap.set('n', 'K',  vim.lsp.buf.hover,       { desc = "Hover documentation" })
+vim.keymap.set('n', '<leader>e', function()
+  vim.diagnostic.open_float(nil, { focus = false })
+end, { desc = "Show diagnostics in float (no focus)" })
 
 --- --------------------------------------------------------------------- ---
 --- nvim-dap configuration                                                ---
