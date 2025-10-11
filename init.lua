@@ -182,7 +182,7 @@ vim.opt.smartindent = true
 --- --------------------------------------------------------------------- ---
 
 --- vim.o.guifont = "MesloLGMDZ Nerd Font Mono:h15"
-vim.o.guifont = "Iosevka Nerd Font Mono:h15"
+vim.o.guifont = "Iosevka Nerd Font Mono:h18"
 
 --- --------------------------------------------------------------------- ---
 --- Treesitter (syntax)                                                   ---
@@ -435,6 +435,7 @@ dap.configurations.cpp = {
 }
 
 dap.configurations.c = dap.configurations.cpp
+dap.configurations.fortran = dap.configurations.cpp
 
 -- nvim-dap-ui configuration
 local dapui = require("dapui")
@@ -452,12 +453,16 @@ dap.listeners.before.event_exited["dapui_config"] = function()
   dapui.close()
 end
 
--- Key mappings for debugging
-vim.api.nvim_set_keymap('n', '<M-c>', '<cmd>lua require"dap".continue()<CR>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<M-n>', '<cmd>lua require"dap".step_over()<CR>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<M-i>', '<cmd>lua require"dap".step_into()<CR>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<M-o>', '<cmd>lua require"dap".step_out()<CR>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<M-b>', '<cmd>lua require"dap".toggle_breakpoint()<CR>', { noremap = true, silent = true })
+local dap, dapui = require('dap'), require('dapui')
+local map, o = vim.keymap.set, {silent=true,noremap=true}
+map('n','<leader>db', function() dap.toggle_breakpoint() end, o)
+map('n','<leader>dc', function() dap.continue() end, o)
+map('n','<leader>do', function() dap.step_over() end, o)
+map('n','<leader>di', function() dap.step_into() end, o)
+map('n','<leader>du', function() dap.step_out() end, o)
+map('n','<leader>dr', function() dap.repl.toggle() end, o)
+map('n','<leader>dk', function() dap.terminate() end, o)
+map('n','<leader>dv', function() dapui.toggle() end, o)
 
 --- --------------------------------------------------------------------- ---
 --- Useful things                                                         ---
@@ -473,4 +478,20 @@ vim.api.nvim_create_autocmd("FileType", {
     vim.bo.equalprg = "clang-format -style=file"
   end,
 })
+
+---
+--- Per project config (each project provides .nvim/dap.lua)
+--- 
+local uv = vim.uv or vim.loop
+local root = vim.fn.getcwd()
+local proj_dap = root .. '/.nvim/dap.lua'
+if uv.fs_stat(proj_dap) then
+  local ok, cfg = pcall(dofile, proj_dap)
+  if ok and type(cfg) == 'table' then
+    local dap = require('dap')
+    for lang, confs in pairs(cfg) do
+      dap.configurations[lang] = confs
+    end
+  end
+end
 
